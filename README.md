@@ -1,56 +1,94 @@
-# Welcome to your Expo app 👋
+# TripMate — Travel Planner & Explore
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native (Expo SDK 58 + TypeScript + Expo Router) üzərində qurulmuş final layihə tətbiqi.
 
-## Get started
+Layihənin arxitektura və kod strukturu [`Elvin1999/BizmanApp-morning`](https://github.com/Elvin1999/BizmanApp-morning) modelinə uyğun şəkildə (`src/` əsaslı qovluq quruluşu, `@/*` aliası, `Expo Router`, `React Native Paper`, `SQLite` repository qatı, `AsyncStorage`, `SecureStore`, `Context` və modul komponentlər) genişləndirilmiş və domenlər üzrə detallı bölünmüşdür.
 
-1. Install dependencies
+---
 
+## Demo Giriş Məlumatları
+
+- **Email:** `admin@tripmate.az`
+- **Şifrə:** `admin123`
+- *(Login ekranında **"Demo hesabını doldur"** düyməsi ilə avtomatik doldurula bilər, həmçinin yeni hesab yarada bilərsiniz.)*
+
+---
+
+## Qovluq Strukturu (`src/`)
+
+```text
+src/
+├── app/                         # Expo Router fayl-əsaslı naviqasiya (Stack + Drawer + Tabs)
+│   ├── _layout.tsx              # Root Stack, SQLite init, Theme/Auth/Favorites/Trip Provider-lər
+│   ├── onboarding.tsx           # Animasiyalı Splash / 3-səhifəli Onboarding
+│   ├── login.tsx                # Giriş ekranı (validasiya + demo hesab)
+│   ├── register.tsx             # Qeydiyyat ekranı
+│   ├── +not-found.tsx           # 404 səhifəsi
+│   ├── search.tsx               # Canlı debounced axtarış, filtr və son axtarış tarixçəsi
+│   ├── (app)/                   # Drawer Navigator
+│   │   ├── _layout.tsx          # Custom Drawer menyu
+│   │   ├── (tabs)/              # Bottom Tabs (Explore, Map, My Trips, Favorites, Profile)
+│   │   ├── journal/index.tsx    # Səyahət Jurnalı (Image Picker + SQLite)
+│   │   └── settings.tsx         # Dark/Light Mode və hesab seçimləri
+│   ├── destination/[id].tsx     # Dinamik məkan detalları + Open-Meteo canlı hava məlumatı
+│   └── trip/
+│       ├── create.tsx           # Yeni səyahət yaratmaq (tarix və büdcə validasiyası)
+│       ├── edit/[id].tsx        # Səyahət redaktəsi və silinməsi
+│       ├── [id].tsx             # Səyahət icmalı və lokal xatırlatma
+│       └── [id]/
+│           ├── itinerary.tsx    # SectionList ilə günlər üzrə plan
+│           ├── activity-form.tsx# Fəaliyyət əlavə etmə / redaktə
+│           └── expenses.tsx     # Büdcə analitikası, BarChart və SQLite xərclər
+├── components/                  # Təkrar istifadə olunan UI komponentləri (kateqoriyalar üzrə)
+│   ├── cards/                   # StatCard, DestinationCard, PlaceCard, TripCard, ActivityItemCard, ExpenseItemCard, JournalEntryCard
+│   ├── charts/                  # BarChart, BudgetProgressCard
+│   ├── common/                  # AppHeader, SearchBar, CategoryChips, EmptyState, ErrorState, LoadingState, OfflineBanner
+│   ├── forms/                   # FormField, DateInputModal
+│   ├── map/                     # InteractiveMapView, MapMarkerDetailSheet
+│   ├── modals/                  # ConfirmModal, ReminderModal
+│   └── ui/                      # Baza UI komponentləri
+├── config/                      # Tətbiq və REST API konfiqurasiyası
+├── constants/                   # Kateqoriyalar, storage açarları, tema sabitləri, ilkin dataset
+├── context/                     # ThemeContext, AuthContext, FavoritesContext, TripContext
+├── database/                    # SQLite (WAL + FK) və domain repository-lər
+│   ├── database.ts              # Singleton getDatabase() və schema/seed
+│   └── repositories/            # user, destination, trip, activity, expense, favorite, journal repository-lər
+├── hooks/                       # Custom hook-lar (useDebounce, useDestinations, useTrips, useLocationPermission, useImagePicker)
+├── services/                    # Xarici servislər
+│   ├── api/                     # httpClient, destinationService (Open-Meteo + cache), tripApiService
+│   ├── device/                  # locationService (expo-location), notificationService (expo-notifications)
+│   └── storage/                 # secureStoreService (expo-secure-store), asyncStorageService
+├── theme/                       # Light/Dark palitralar, tipografiya və Paper tema konfiqurasiyası
+├── types/                       # TypeScript modelləri, API DTO-ları, form və naviqasiya tipləri
+├── utils/                       # Formatlaşdırma, tarix və büdcə hesablama funksiyaları
+└── validators/                  # Auth, Trip/Activity, Expense/Journal form validatorları
+```
+
+---
+
+## Əsas Funksionallıqlar
+
+- **Navigation (Expo Router):** Root Stack (`Stack.Protected` ilə Auth/Onboarding qorunması) + Custom Drawer + 5 Bottom Tab + Dinamik Stack Detail ekranları (`[id]`) + `+not-found`.
+- **REST API + Offline Keş:** `Open-Meteo` canlı hava məlumatı API-si, pagination, pull-to-refresh və `AsyncStorage` offline keşi.
+- **SQLite Persistence (`expo-sqlite`):** 8 cədvəlli (`users`, `destinations`, `places`, `trips`, `activities`, `expenses`, `favorites`, `journal_entries`) relational baza, tam CRUD əməliyyatları və tətbiq bağlanıb açılanda vəziyyətin bərpası.
+- **Təhlükəsiz Sessiya:** Auth tokenlərin `expo-secure-store` (webdə `AsyncStorage` fallback) ilə saxlanması.
+- **Cihaz API-ləri:** `expo-image-picker` (profil şəkli və səyahət jurnalı fotoları), `expo-location` (xəritədə canlı GPS mövqeyi və məsafə hesablanması), `expo-notifications` (səyahət xatırlatması), `KeyboardAvoidingView` və icazə rəddi halının idarə edilməsi.
+- **UI/UX:** Light/Dark Mode, animasiyalı Onboarding logosu, animasiyalı büdcə irəliləyiş çubuğu (`BudgetProgressCard`), `BarChart` xərc qrafiki, `SectionList` günlük marşrut, `FlatList`, `Modal`, `Switch`, `ActivityIndicator`.
+
+---
+
+## İşə Salma Təlimatı
+
+1. Asılılıqları yükləyin:
    ```bash
    npm install
    ```
-
-2. Start the app
-
+2. Layihəni başladın:
    ```bash
    npx expo start
    ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+3. Yoxlama əmrləri:
+   ```bash
+   npm run typecheck
+   npm run web
+   ```
